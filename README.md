@@ -6,6 +6,7 @@ Get details about teams you used from a Wuwa's Matrix screenshot. This program g
 **How to Use:**
 
 Run ```WuwaMatrixReader.py```
+Download images in ```number_images``` to detect Team number
 
 **Input:** 
 
