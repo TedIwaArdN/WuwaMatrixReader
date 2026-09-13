@@ -23,6 +23,9 @@ Keys of each entry:
 Team #: an integer, the number of team
 Resonators: array of strings, image name of matched resonators
 BUFF: a string, image name of matched BUFF icon
+Wave Number Area: bounding box of wave number (wave ?)
+Monster Count Area: bounding box of monster count (?/5)
+Team Score Area: bounding box of team score
 ```
 
 
@@ -30,4 +33,4 @@ BUFF: a string, image name of matched BUFF icon
 **Python version:** 3.11
 
 *by Dropkick
-9/5/2026*
+9/13/2026*
