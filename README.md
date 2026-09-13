@@ -28,6 +28,8 @@ Monster Count Area: bounding box of monster count (?/5)
 Team Score Area: bounding box of team score
 ```
 
+Bounding box format: ```x0, y0, width, height```
+
 
 
 **Python version:** 3.11
