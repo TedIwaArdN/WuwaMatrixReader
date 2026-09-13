@@ -1,6 +1,6 @@
 # Wuwa Matrix Reader
 # by Dropkick
-# 9/5/2026
+# 9/13/2026
 
 import numpy as np
 import os
@@ -39,11 +39,9 @@ num_data = []
 
 image_files = sorted([f for f in os.listdir(ROUND_AVATAR_PATH) if f.lower().endswith((".webp"))])
 img_data = []
-img_data1 = []
 
 buff_imgs = sorted([f for f in os.listdir(BUFF_ICON_PATH) if f.lower().endswith((".webp"))])
 buff_data = []
-buff_data1 = []
 
 
 #
@@ -77,7 +75,7 @@ def is_valid_color(r, g, b):
     # Calculate V
     v = max_val * 100
 
-    return (197 < h < 209 and 17 < s < 29 and 25 < v < 37)
+    return (195 < h < 215 and 17 < s < 30 and 25 < v < 40)
 
 # BFS to get color blocks
 def get_valid_blocks(img, min_pixel_size=5000):
@@ -88,7 +86,7 @@ def get_valid_blocks(img, min_pixel_size=5000):
     blocks = []
     
     # Directions for 4-connectivity (Up, Down, Left, Right)
-    directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (0, 2), (0, -2), (2, 0), (-2, 0)]
+    directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (0, 2), (0, -2), (2, 0), (-2, 0), (0, 3), (0, -3), (3, 0), (-3, 0), ]
     
     for y in range(height):
         for x in range(width):
@@ -162,6 +160,36 @@ def _rgb_to_luma_np_uint8(rgb_pil):
     luma = (0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1] + 0.114 * arr[:, :, 2])
     return np.clip(luma, 0.0, 255.0).astype(np.uint8)
 
+# RGB to HSV function
+def to_hsv(r, g, b):
+    # Normalization
+        r, g, b = r / 255.0, g / 255.0, b / 255.0
+    
+        max_val = max(r, g, b)
+        min_val = min(r, g, b)
+        diff = max_val - min_val
+    
+        # Calculate H
+        if max_val == min_val:
+            h = 0.0
+        elif max_val == r:
+            h = (60 * ((g - b) / diff) + 360) % 360
+        elif max_val == g:
+            h = (60 * ((b - r) / diff) + 120) % 360
+        elif max_val == b:
+            h = (60 * ((r - g) / diff) + 240) % 360
+    
+        # Calculate S
+        if max_val == 0:
+            s = 0.0
+        else:
+            s = (diff / max_val) * 100
+    
+        # Calculate V
+        v = max_val * 100
+    
+        return h, s, v
+
 #
 # Initialization function
 #
@@ -187,13 +215,6 @@ def init():
         mean_rgb = arr.reshape(-1, 3).mean(axis=0).astype(np.float64)
         img_data.append((rgb, luma_np, mean_rgb))
 
-        rgb1 = _pil_to_rgb_on_black(img_ava).resize((128, 128), Image.Resampling.LANCZOS)
-        arr1 = np.array(rgb1)[3:121, 0:127]
-        rgb1 = Image.fromarray(arr1)
-        luma_np1 = _rgb_to_luma_np_uint8(rgb1)          # uint8, shape==compare_size
-        mean_rgb1 = arr1.reshape(-1, 3).mean(axis=0).astype(np.float64)
-        img_data1.append((rgb1, luma_np1, mean_rgb1))
-
     # Read BUFF icons
     for i, img_name in enumerate(buff_imgs):
         img_ava = Image.open(os.path.join(BUFF_ICON_PATH, img_name))
@@ -203,12 +224,6 @@ def init():
         luma_np = _rgb_to_luma_np_uint8(rgb)          # uint8, shape==compare_size
         mean_rgb = arr.reshape(-1, 3).mean(axis=0).astype(np.float64)
         buff_data.append((rgb, luma_np, mean_rgb))
-
-        rgb1 = _pil_to_rgb_on_black(img_ava).resize((79, 79), Image.Resampling.LANCZOS)
-        arr1 = np.array(rgb1)
-        luma_np1 = _rgb_to_luma_np_uint8(rgb1)          # uint8, shape==compare_size
-        mean_rgb1 = arr1.reshape(-1, 3).mean(axis=0).astype(np.float64)
-        buff_data1.append((rgb1, luma_np1, mean_rgb1))
 
 # ---------------------------------------------------------------------------
 # Structural: NCC (original copy.py method, zero-mean normalized xcorr)
@@ -372,135 +387,126 @@ def ReadMatrixImg(Matrix_Img_PATH):
 
     res_img = []
 
-    BUFF_POS = (568, 22)
-    BUFF_W, BUFF_H = 75, 75
-    BUFF_COMPARE_SIZE = (75, 75)
-
-    NUMBER_POS = [(35, 39),(70, 39)]
-    NUMBER_W, NUMBER_H = 33, 43
-    NUMBER_COMPARE_SIZE = (32, 43)
-
     for index, one_team in enumerate(res):
         team_to_test = np.array(img)[res[index]['bbox'][1]:res[index]['bbox'][3], res[index]['bbox'][0]:res[index]['bbox'][2]]
 
+        h_block = team_to_test.shape[0]
         # remove blocks that are not valid / change constant parameters
-        if 10.5 < team_to_test.shape[1] / team_to_test.shape[0] < 11:
-            team_rect = Image.fromarray(team_to_test)
-            team_to_test = np.array((team_rect.resize((1290, 122), Image.Resampling.LANCZOS)))
-
-            RESONATOR_POS = [(161, 0), (280, 0), (399, 0)]
-            RESONATOR_W, RESONATOR_H = 128, 122
-            AVATAR_COMPARE_SIZE = (127, 122)
-
-            BUFF_POS = (568, 22)
-            BUFF_W, BUFF_H = 75, 75
-            BUFF_COMPARE_SIZE = (75, 75)
-
-            NUMBER_POS = [(33, 39),(67, 39)]
-            NUMBER_W, NUMBER_H = 33, 43
-            NUMBER_COMPARE_SIZE = (32, 43)
-            
-            res_data = img_data
-            buff_res_data = buff_data
-
-
-        elif 11.28 < team_to_test.shape[1] / team_to_test.shape[0] < 11.5:
-            team_rect = Image.fromarray(team_to_test)
-            team_to_test = np.array((team_rect.resize((1320, 117), Image.Resampling.LANCZOS)))
-            
-            RESONATOR_POS = [(164, 0), (287, 0), (410, 0)]
-            RESONATOR_W, RESONATOR_H = 128, 118
-            AVATAR_COMPARE_SIZE = (127, 118)
-
-            BUFF_POS = (580, 18)
-            BUFF_W, BUFF_H = 79, 79
-            BUFF_COMPARE_SIZE = (79, 79)
-
-            NUMBER_POS = [(33, 37),(68, 37)]
-            NUMBER_W, NUMBER_H = 33, 43
-            NUMBER_COMPARE_SIZE = (32, 43)
-
-            res_data = img_data1
-            buff_res_data = buff_data1
-
-        elif 10.54 < team_to_test.shape[1] / team_to_test.shape[0] < 10.55:
-            team_rect = Image.fromarray(team_to_test)
-            team_to_test = np.array((team_rect.resize((1320, 117), Image.Resampling.LANCZOS)))
-
-            RESONATOR_POS = [(168, 0), (291, 0), (414, 0)]
-            RESONATOR_W, RESONATOR_H = 128, 118
-            AVATAR_COMPARE_SIZE = (127, 118)
-
-            BUFF_POS = (584, 18)
-            BUFF_W, BUFF_H = 79, 79
-            BUFF_COMPARE_SIZE = (79, 79)
-
-            NUMBER_POS = [(33, 37),(68, 37)]
-            NUMBER_W, NUMBER_H = 33, 43
-            NUMBER_COMPARE_SIZE = (32, 43)
-
-            res_data = img_data1
-            buff_res_data = buff_data1
-
-        else :
+        if team_to_test.shape[1] < img.size[0] // 3:
             continue
 
-        # Identify team ID
-        team_number_img = []
-        
-        for i, (x, y) in enumerate(NUMBER_POS):
-            sub_image = team_to_test[y:y+NUMBER_H, x:x+NUMBER_W]
-            team_number_img.append(sub_image)
-
+        # Identify team ID=
         res_numbers = 0
-        for i, num_img in enumerate(team_number_img):
-                num_arr = Image.fromarray(num_img)
-                best_score = -1.0
-                best_idx   = 0
-                for idx, tpl in enumerate(num_data):
-                    final, _, _, _ = _compare_slot(num_arr, tpl, NUMBER_COMPARE_SIZE)
-                    if final > best_score:
-                        best_score = final
-                        best_idx   = idx
+        NUMBER_POS_X = [33 * h_block // 118, 67 * h_block // 118]
+        NUMBER_COMPARE_SIZE = (32, 43)
 
-                res_numbers = res_numbers * 10 + int(number_files[best_idx].split(".")[0])
+        for i, num_pos_x in enumerate(NUMBER_POS_X):
+            number_data = team_to_test[h_block // 2 - 23 * h_block // 118:h_block // 2 + 22 * h_block // 118, 
+                                    num_pos_x:num_pos_x+33 * h_block // 118]
+            num_img = Image.fromarray(number_data)
+
+            num_arr = np.array(num_img.resize(NUMBER_COMPARE_SIZE, Image.Resampling.LANCZOS))
+
+            best_score = -1.0
+            best_idx   = 0
+            for idx, tpl in enumerate(num_data):
+                final, _, _, _ = _compare_slot(num_img, tpl, NUMBER_COMPARE_SIZE)
+                if final > best_score:
+                    best_score = final
+                    best_idx   = idx
+
+            res_numbers = res_numbers * 10 + int(number_files[best_idx].split(".")[0])
 
         # Identify resonator
+        start_pos = [159 * h_block // 122, 0]
+
+        grayBar_pos = 0
+
+        # Locate the bar right next to 3 resonators
+        for i in range(start_pos[0], h_block * 5):
+            count = 0
+            for j in range(0, h_block):
+                pixel_rgb = team_to_test[j][i]
+                h, s, v = to_hsv(pixel_rgb[0], pixel_rgb[1], pixel_rgb[2])
+                if 200 < h < 210 and 5 < s < 15 and 40 < v < 60:
+                    count = count + 1
+            if count > h_block // 4:
+                grayBar_pos = i
+                break
+
+        area_w, area_h = 366 * h_block // 122, h_block
+
+        three_resonator_block = team_to_test[start_pos[1]:start_pos[1] + area_h, start_pos[0]:grayBar_pos - int(h_block * 0.1)]
+
+        # Divide to 3 resonators
+        avatar_w = three_resonator_block.shape[1] // 3
+
         resonator_in_team = []
 
-        for i, (x, y) in enumerate(RESONATOR_POS):
-            sub_image = team_to_test[y:y+RESONATOR_H, x:x+RESONATOR_W]
+        for i in range(3):
+            sub_image = three_resonator_block[0:three_resonator_block.shape[0], avatar_w * i:avatar_w * (i + 1)]
             resonator_in_team.append(sub_image)
 
-        res_resonator = []
-        for i, avatar in enumerate(resonator_in_team):
-                ava_arr = Image.fromarray(avatar)
-                best_score = -1.0
-                best_idx   = 0
-                for idx, tpl in enumerate(res_data):
-                    final, _, _, _ = _compare_slot(ava_arr, tpl, AVATAR_COMPARE_SIZE)
-                    if final > best_score:
-                        best_score = final
-                        best_idx   = idx
+        # Compare each resonator w/ database
+        AVATAR_COMPARE_SIZE = (127, 122)
 
-                res_resonator.append(image_files[best_idx])
+        res_resonator = []
+
+        for i, resonator_avatar in enumerate(resonator_in_team):
+            ava_img = Image.fromarray(resonator_avatar)
+
+            ava_arr = np.array(ava_img.resize(AVATAR_COMPARE_SIZE, Image.Resampling.LANCZOS))
+
+            best_score = -1.0
+            best_idx   = 0
+            for idx, tpl in enumerate(img_data):
+                final, _, _, _ = _compare_slot(ava_img, tpl, AVATAR_COMPARE_SIZE)
+                if final > best_score:
+                    best_score = final
+                    best_idx   = idx
+
+            res_resonator.append(image_files[best_idx])
 
         # Identify BUFF
-        buff_slot = team_to_test[BUFF_POS[1]:BUFF_POS[1]+BUFF_H, BUFF_POS[0]:BUFF_POS[0]+BUFF_W]
-        buff_arr = Image.fromarray(buff_slot)
+        buff_x0 = grayBar_pos + 27 * h_block // 122
+
+        buff_w, buff_h = 75 * h_block // 122, 75 * h_block // 122
+
+        buff_icon = team_to_test[(h_block - buff_h) // 2:(h_block + buff_h) // 2, buff_x0:buff_x0+buff_w]
+
+
+        BUFF_COMPARE_SIZE = (75, 75)
+
+        buff_img = Image.fromarray(buff_icon)
+
+        buff_arr = np.array(buff_img.resize(BUFF_COMPARE_SIZE, Image.Resampling.LANCZOS))
 
         best_score = -1.0
         best_idx = 0
-        for idx, tpl in enumerate(buff_res_data):
-            final, _, _, _ = _compare_slot(buff_arr, tpl, BUFF_COMPARE_SIZE)
+        for idx, tpl in enumerate(buff_data):
+            final, _, _, _ = _compare_slot(buff_img, tpl, BUFF_COMPARE_SIZE)
             if final > best_score:
                 best_score = final
                 best_idx   = idx
-                
+
+        # Bounding box for wave info & score
+        # x0, y0, w, h
+        # wave & monster count
+        wave_number = [res[index]['bbox'][0] + (grayBar_pos + team_to_test.shape[1]) // 2 - int(h_block * 1.2), res[index]['bbox'][1] + h_block // 6, int(h_block * 1.2), h_block // 3]
+        monster_count = [res[index]['bbox'][0] + (grayBar_pos + team_to_test.shape[1]) // 2 - h_block * 2 // 3, res[index]['bbox'][1] + h_block // 2, h_block * 2 // 3, h_block // 2]
+        # score
+        team_score = [res[index]['bbox'][0] + team_to_test.shape[1] - int(h_block * 2), res[index]['bbox'][1] + h_block // 3, int(h_block * 2), h_block // 3]
+
+        # Empty slot, skip it
+        if 'empty.webp' in res_resonator:
+            continue
         res_img.append({
             "Team #": res_numbers,
             "Resonators": res_resonator, 
             "BUFF": buff_imgs[best_idx],
+            "Wave Number Area": wave_number,
+            "Monster Count Area": monster_count,
+            "Team Score Area": team_score,
         })
 
     return res_img
@@ -510,7 +516,7 @@ def ReadMatrixImg(Matrix_Img_PATH):
 #
 if __name__ == "__main__":
     init()
-    paht = "d:/OtherFiles/WuwaShareReader/MatrixTest05.png"
+    paht = "d:/OtherFiles/WuwaShareReader/MatrixTest02.png"
     res = ReadMatrixImg(paht)
     for ele in res:
         print(ele)
